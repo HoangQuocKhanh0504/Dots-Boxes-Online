@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Dots & Boxes Online</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js" defer></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="GD.png">
+  <script>
+(function(){
+  const text = "Trò chơi KhanhPC";
+  const cursorChar = "▌";      // ký tự con trỏ: đổi thành "|" hoặc "_" nếu thích
+  const typingInterval = 140; // ms mỗi chữ
+  const cursorInterval = 500; // ms nhấp nháy
+
+  let i = 0;
+  let cursorVisible = true;
+
+  function renderTitle() {
+    const shown = text.substring(0, Math.min(i, text.length));
+    // nếu cursorVisible false thì chèn một khoảng trắng để tránh flicker quá gắt
+    document.title = shown + (cursorVisible ? cursorChar : " ");
+  }
+
+  // Hiệu ứng gõ (chạy 1 lần). Để lặp lại, uncomment phần chỉ dẫn bên dưới.
+  const typer = setInterval(() => {
+    if (i <= text.length) {
+      renderTitle();
+      i++;
+    } else {
+      clearInterval(typer);
+      // --- Muốn lặp: bỏ comment 2 dòng sau ---
+      // i = 0;
+      // (khi uncomment, script sẽ gõ lại từ đầu)
+      // --------------------------------------
+    }
+  }, typingInterval);
+
+  // Nhấp nháy con trỏ liên tục
+  setInterval(() => {
+    cursorVisible = !cursorVisible;
+    renderTitle();
+  }, cursorInterval);
+})();
+</script>
+</head>
+<div id="notification-bar" style="
+    width: 100%;
+    background-color: #ffcc00;
+    color: #000;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    height: 40px;
+    line-height: 40px;
+    border-bottom: 2px solid #cc9900;
+    box-sizing: border-box;
+    position: fixed; /* thay relative -> fixed */
+    top: 0;
+    left: 0;
+    z-index: 9999; /* đảm bảo nằm trên cùng */
+">
+  <div id="scrolling-wrapper" style="
+      display: inline-block;
+      white-space: nowrap;
+      will-change: transform;
+      animation: scroll-infinite 30s linear infinite;
+  ">
+    <span style="padding-right: 50px;">
+      Hiện tại web chỉ mới đang phát triển nên sẽ có 1 số lỗi không mong muốn. Đôi khi css của web sẽ bị mất. Nếu các bạn muốn làm web thì có thể liên hệ mình qua website: 
+      <a href="https://aikhanh.onrender.com" target="_blank" style="color: #000; text-decoration: underline;">https://aikhanh.onrender.com</a>
+      © KHANHPC 2025 | mọi quyền được bảo lưu
+    </span>
+    <!-- Lặp lại thêm các span nếu cần -->
+  </div>
+</div>
+
+<style>
+@keyframes scroll-infinite {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-25%);
+  }
+}
+body {
+  padding-top: 40px; /* để nội dung không bị che */
+}
+
+</style>
+
+<body class="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 flex h-screen">
+
+  <!-- Khu vực game -->
+  <div class="flex-1 flex items-center justify-center p-4">
+    <canvas id="gameCanvas" width="800" height="800" 
+      class="bg-white shadow-2xl rounded-2xl border border-gray-200 transition-transform duration-300 hover:scale-[1.01]"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="w-80 bg-white border-l border-gray-200 p-6 flex flex-col space-y-6 shadow-2xl rounded-l-3xl">
+    <!-- Form phòng chơi -->
+    <div>
+      <h2 class="text-2xl font-extrabold mb-4 text-indigo-600">🎮 Phòng chơi</h2>
+
+      <label class="block mb-1 font-medium text-gray-700">Mã phòng</label>
+      <input id="roomInput" class="w-full border rounded-lg p-2 mb-3 focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Nhập mã phòng" />
+
+      <label class="block mb-1 font-medium text-gray-700">Tên bạn</label>
+      <input id="nameInput" class="w-full border rounded-lg p-2 mb-3 focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Nhập tên" />
+
+      <label class="block mb-1 font-medium text-gray-700">Màu mực</label>
+      <input type="color" id="colorInput" class="w-full border rounded-lg p-2 mb-3 cursor-pointer" value="#ff0000" />
+
+      <label class="block mb-1 font-medium text-gray-700">Ký hiệu</label>
+      <input id="symbolInput" class="w-full border rounded-lg p-2 mb-3 focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Ví dụ: X" maxlength="1" />
+
+      <!-- Kích thước -->
+      <div class="flex items-center space-x-2 mb-4">
+        <input id="widthInput" type="number" class="border rounded-lg p-2 w-16 focus:ring-2 focus:ring-indigo-400 outline-none" value="5" min="2">
+        <span class="text-gray-600">x</span>
+        <input id="heightInput" type="number" class="border rounded-lg p-2 w-16 focus:ring-2 focus:ring-indigo-400 outline-none" value="5" min="2">
+      </div>
+
+      <!-- Nút -->
+      <div class="flex space-x-3">
+        <button onclick="createRoom()" class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg p-2 shadow hover:from-blue-600 hover:to-blue-700 transition">Tạo phòng</button>
+        <button onclick="joinRoom()" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-lg p-2 shadow hover:from-green-600 hover:to-green-700 transition">Tham gia</button>
+      </div>
+
+      <button onclick="startGame()" id="startBtn" class="mt-3 hidden w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg p-2 shadow hover:from-purple-600 hover:to-purple-700 transition">Bắt đầu chơi</button>
+    </div>
+
+    <!-- Trạng thái -->
+    <div class="bg-gray-50 p-3 rounded-lg border text-center">
+      <p id="status" class="text-gray-600">Chưa tham gia phòng</p>
+      <p id="turnInfo" class="text-lg font-bold text-indigo-600"></p>
+      <p id="timer" class="text-red-500 font-bold"></p>
+    </div>
+
+    <!-- Bảng xếp hạng -->
+    <div>
+      <h2 class="text-2xl font-extrabold mb-3 text-pink-600">🏆 Bảng xếp hạng</h2>
+      <table class="w-full border rounded-lg overflow-hidden shadow text-center" id="scoreboard">
+        <thead>
+          <tr class="bg-indigo-100 text-gray-700">
+            <th class="p-2">Tên</th>
+            <th class="p-2">Ký hiệu</th>
+            <th class="p-2">Điểm</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y"></tbody>
+      </table>
+    </div>
+  </div>
+
+</body>
+</html>
